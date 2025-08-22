@@ -1,0 +1,13 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "dependencies": {
+        "sqlite": "^5.1.1",
+      },
+    },
+  },
+  "packages": {
+    "sqlite": ["sqlite@5.1.1", "", {}, "sha512-oBkezXa2hnkfuJwUo44Hl9hS3er+YFtueifoajrgidvqsJRQFpc5fKoAkAor1O5ZnLoa28GBScfHXs8j0K358Q=="],
+  }
+}
