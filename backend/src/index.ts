@@ -1,49 +1,24 @@
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import sqlite3 from 'sqlite3';
 import crypto from 'crypto';
 import { open, Database } from 'sqlite';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+let db: Database;
 
-const setupDb = async (): Promise<Database> => {
-  const db = await open({
+const setupDatabase = async () => {
+  const database = await open({
     filename: './mydatabase.db',
     driver: sqlite3.Database
   });
-  await db.run(`
-  CREATE TABLE IF NOT EXISTS redirects (
+  console.log('Connected to SQLite database');
+  await database.run(`CREATE TABLE IF NOT EXISTS redirects (
     subdomain TEXT PRIMARY KEY,
-    url TEXT NOT NULL
-  )
-`);
-  return db;
+    timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    url TEXT NOT NULL);`);
+  db = database;
 }
-
-// Ensure the redirects table exists
-
-
-app.get('/', (req: Request, res: Response) => {
-  const host = req.hostname;
-  const domainParts = host.split('.');
-  const subDomain = domainParts[0];
-
-  db.get(
-    'SELECT url FROM redirects WHERE subdomain = ?',
-    [subDomain],
-    (err, row: { url: string } | undefined) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send('Database error');
-      }
-      if (row && row.url) {
-        return res.redirect(row.url);
-      } else {
-        return res.status(404).send('No redirect found for this subdomain');
-      }
-    }
-  );
-});
 
 const generateSubdomainFromUrl = (url: string, salt: string = ''): string => {
   const hash = crypto.createHash('sha256').update(url + salt).digest('base64url');
@@ -51,72 +26,64 @@ const generateSubdomainFromUrl = (url: string, salt: string = ''): string => {
   return hash.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 12);
 }
 
-const checkSubdomainExists = (subdomain: string): void => {
-  db.get(
-    'SELECT url FROM redirects WHERE subdomain = ?',
-    [subdomain],
-    (err, row: { url: string } | undefined) => {
-      if (err) {
-        console.error(err);
-        throw new Error('Database error');
-      }
-      return !!row; // Return true if row exists, false otherwise
-    }
-  );
+const checkSubdomainExists = async (subdomain: string): Promise<boolean> => {
+  const result = await db.get('SELECT 1 FROM redirects WHERE subdomain = ?', [subdomain]);
+  return !!result;
 }
 
 // Extracted function to check and insert subdomain
-const tryInsertSubdomain = async (domain: string): string => {
-  let subdomain = generateSubdomainFromUrl(domain);
-
-  db.get(
-    'SELECT url FROM redirects WHERE subdomain = ?',
-    [subdomain],
-    (err, row: { url: string } | undefined) => {
-      if (err) {
-        console.error(err);
-        throw new Error('Database error');
-      }
-      if (!row) {
-
-        db.run(
-          'INSERT INTO redirects (subdomain, url) VALUES (?, ?)',
-          [subdomain, url],
-          function (err) {
-            if (err) {
-              console.error(err);
-              return callback(500, 'Database error');
-            }
-            return callback(201, 'Redirect added successfully', subdomain);
-          }
-        );
-      }
-      // Subdomain is unique, insert it
-      while (row) {
-        // Collision: generate a new subdomain with a salt
-        const newSalt = crypto.randomBytes(2).toString('hex');
-        subdomain = generateSubdomainFromUrl(domain, newSalt);
-
-      }
-    }
-  );
+const tryInsertSubdomain = async (domain: string): Promise<string> => {
+  let url = generateSubdomainFromUrl(domain);
+  while (await checkSubdomainExists(url)) {
+    const newSalt = crypto.randomBytes(2).toString('hex');
+    url = generateSubdomainFromUrl(domain, newSalt);
+  }
+  await db.run('INSERT INTO redirects (subdomain, url) VALUES (?,?)', [ url, domain]);
+  return url;
 }
 
-app.post('/add-redirect', express.json(), (req, res) => {
+app.post('/', express.json(), async (req: Request, res: Response) => {
   const { url } = req.body;
   if (!url) {
     return res.status(400).send('URL is required');
   }
+  const newDomain = await tryInsertSubdomain(url);
+  if (newDomain) {
+    // Build the full redirect URL
+    const protocol = req.protocol;
+    const host = req.get('host') || '';
+    // Remove the current subdomain (if any) from host
+    const hostParts = host.split('.');
+    // Remove the first part (subdomain) if there are more than 2 parts
+    const baseDomain = hostParts.length > 2 ? hostParts.slice(1).join('.') : host;
+    const redirectUrl = `${protocol}://${newDomain}.${baseDomain}`;
+    return res.json({ subdomain: newDomain, url: redirectUrl, originalUrl: url });
+  }
+  else {
+    return res.status(500).send('Could not create redirect');
+  }
 
-  tryInsertSubdomain(url, (status, message, subdomain) => {
-    if (subdomain) {
-      res.status(status).send(`${message}. Subdomain: ${subdomain}`);
-    } else {
-      res.status(status).send(message);
-    }
-  });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+app.get('/', async (req: Request, res: Response) => {
+  const host = req.hostname;
+  const domainParts = host.split('.');
+  const subDomain = domainParts[0];
+  try {
+    const result = await db.get('SELECT url FROM redirects WHERE subdomain = ?', [subDomain]);
+    if (result && result.url) {
+      return res.redirect(result.url);
+    } else {
+      return res.status(404).send('Redirect not found');
+    }
+  } catch (error) {
+    console.error('Database error:', error);
+    return res.status(500).send('Internal Server Error');
+  }
+});
+
+setupDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
 });
