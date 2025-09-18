@@ -1,6 +1,9 @@
-name = "redirector-worker"
+name = "redirector"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
+
+[observability.logs]
+enabled = true
 
 [[d1_databases]]
 binding = "DB"
