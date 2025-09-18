@@ -17,7 +17,20 @@ const getRoute = async (req: Request, res: Response) => {
     try {
         const result = await req.db.get('SELECT url FROM redirects WHERE subdomain = ?', [id]);
         if (result && result.url) {
-            return res.redirect(result.url);
+            const originalUrl = req.originalUrl.replace(/^\/[^\/]+/, ''); 
+            const targetUrl = new URL(result.url);
+            targetUrl.pathname = targetUrl.pathname.replace(/\/$/, '') + originalUrl;
+            const headersAsQuery = new URLSearchParams();
+            for (const [key, value] of Object.entries(req.headers)) {
+                if (typeof value === 'string') {
+                    headersAsQuery.append(`${key}`, value);
+                }
+            }
+            const mergedSearch = [targetUrl.search.replace(/^\?/, ''), headersAsQuery.toString()]
+                .filter(Boolean)
+                .join('&');
+            targetUrl.search = mergedSearch ? `?${mergedSearch}` : '';
+            return res.redirect(targetUrl.toString());
         } else {
             return res.status(404).send('Redirect not found');
         }
