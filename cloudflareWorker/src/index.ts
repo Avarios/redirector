@@ -88,7 +88,7 @@ async function createUniqueSubdomain(url: string, env: Env): Promise<string | nu
     
     if (!exists) {
       try {
-        await env.DB.prepare('INSERT INTO redirects (subdomain, url) VALUES (?, ?')
+        await env.DB.prepare('INSERT INTO redirects (subdomain, url) VALUES (?, ?)')
           .bind(subdomain, url)
           .run();
         return subdomain;
