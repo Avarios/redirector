@@ -31,7 +31,15 @@ async function handleRedirect(request: Request, env: Env): Promise<Response> {
       .first();
     
     if (result?.url) {
-      return Response.redirect(result.url as string, 302);
+      const originalUrl = new URL(result.url as string);
+      const incomingUrl = new URL(request.url);
+
+      // Append all search params from the incoming request to the original url
+      incomingUrl.searchParams.forEach((value, key) => {
+        originalUrl.searchParams.append(key, value);
+      });
+
+      return Response.redirect(originalUrl.toString(), 302);
     }
     
     return new Response('Redirect not found', { status: 404 });
@@ -80,7 +88,7 @@ async function createUniqueSubdomain(url: string, env: Env): Promise<string | nu
     
     if (!exists) {
       try {
-        await env.DB.prepare(`INSERT INTO redirects (subdomain, url) VALUES (${subdomain}, ${url})`)
+        await env.DB.prepare('INSERT INTO redirects (subdomain, url) VALUES (?, ?')
           .bind(subdomain, url)
           .run();
         return subdomain;
