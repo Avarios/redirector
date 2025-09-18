@@ -17,7 +17,7 @@ setupDatabase().then((db: Database) => {
     next();
   });
   app.post('/', express.json(), postRoute);
-  app.get('/', getRoute);
+  app.get('/:id', getRoute);
   app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
   });

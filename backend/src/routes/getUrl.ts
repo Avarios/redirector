@@ -12,13 +12,10 @@ import { Request, Response } from 'express';
  * @returns A Promise that resolves to an HTTP redirect, 404, or 500 response.
  */
 const getRoute = async (req: Request, res: Response) => {
-    console.debug('Received GET request for host:', req.hostname?.replace(/[\r\n]/g, ''));
-    const host = req.hostname;
-    const domainParts = host.split('.');
-    const subDomain = domainParts[0];
-    console.debug('Extracted subdomain:', subDomain);
+    const id = req.params.id;
+    console.debug('Extracted subdomain:', id);
     try {
-        const result = await req.db.get('SELECT url FROM redirects WHERE subdomain = ?', [subDomain]);
+        const result = await req.db.get('SELECT url FROM redirects WHERE subdomain = ?', [id]);
         if (result && result.url) {
             return res.redirect(result.url);
         } else {

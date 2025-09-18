@@ -20,15 +20,13 @@ export default {
 
 async function handleRedirect(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const hostname = url.hostname;
-  
-  if (!hostname) {
+  const pathParts = url.pathname.split('/').filter(Boolean);
+
+  if (pathParts.length === 0) {
     return new Response('Bad Request', { status: 400 });
   }
-  
-  const domainParts = hostname.split('.');
-  const subdomain = domainParts[0];
-  
+
+  const subdomain = pathParts[0];
   try {
     const result = await env.DB.prepare('SELECT url FROM redirects WHERE subdomain = ?')
       .bind(subdomain)
