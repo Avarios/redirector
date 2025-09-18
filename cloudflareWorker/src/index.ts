@@ -28,7 +28,7 @@ async function handleRedirect(request: Request, env: Env): Promise<Response> {
 
   const subdomain = pathParts[0];
   try {
-    const result = await env.DB.prepare('SELECT url FROM redirects WHERE subdomain = ?')
+    const result = await env.DB.prepare(`SELECT url FROM redirects WHERE subdomain = ${subdomain}`)
       .bind(subdomain)
       .first();
     
