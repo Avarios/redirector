@@ -15,8 +15,13 @@ declare module 'express-serve-static-core' {
  */
 const dbMiddleware = (db: Database) => {
   return function(req: Request, res: Response, next: NextFunction) {
-    req.db = db;
-    next();
+    try {
+      req.db = db;
+      next();
+    } catch (error) {
+      console.error('Database middleware error:', error);
+      next(error);
+    }
   };
 }
 

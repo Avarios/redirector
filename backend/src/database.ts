@@ -12,19 +12,24 @@ import sqlite3 from 'sqlite3';
  * Logs a message to the console upon successful connection.
  * Assigns the opened database instance to the global `db` variable.
  *
- * @returns {Promise<void>} A promise that resolves when the database is set up.
+ * @returns {Promise<Database>} A promise that resolves to the database instance when setup is complete.
  */
 const setupDatabase = async (): Promise<Database> => {
-    const database = await open({
-        filename: './mydatabase.db',
-        driver: sqlite3.Database
-    });
-    console.log('Connected to SQLite database');
-    await database.run(`CREATE TABLE IF NOT EXISTS redirects (
-    subdomain TEXT PRIMARY KEY,
-    timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-    url TEXT NOT NULL);`);
-    return database;
+    try {
+        const database = await open({
+            filename: './mydatabase.db',
+            driver: sqlite3.Database
+        });
+        console.log('Connected to SQLite database');
+        await database.run(`CREATE TABLE IF NOT EXISTS redirects (
+        subdomain TEXT PRIMARY KEY,
+        timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        url TEXT NOT NULL);`);
+        return database;
+    } catch (error) {
+        console.error('Database setup failed:', error);
+        throw error;
+    }
 }
 
 export { setupDatabase };

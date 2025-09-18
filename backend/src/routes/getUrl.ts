@@ -12,7 +12,7 @@ import { Request, Response } from 'express';
  * @returns A Promise that resolves to an HTTP redirect, 404, or 500 response.
  */
 const getRoute = async (req: Request, res: Response) => {
-    console.debug('Received GET request for host:', req.hostname);
+    console.debug('Received GET request for host:', req.hostname?.replace(/[\r\n]/g, ''));
     const host = req.hostname;
     const domainParts = host.split('.');
     const subDomain = domainParts[0];

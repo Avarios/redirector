@@ -29,7 +29,7 @@ const postRoute = async (req: Request, res: Response) => {
         // Remove the first part (subdomain) if there are more than 2 parts
         const baseDomain = hostParts.length > 2 ? hostParts.slice(1).join('.') : host;
         const redirectUrl = `${protocol}://${newDomain}.${baseDomain}`;
-        return res.json({ subdomain: newDomain, url: redirectUrl, originalUrl: url });
+        return res.json({ subdomain: newDomain, url: redirectUrl, originalUrl: url.replace(/[<>"'&]/g, '') });
     }
     else {
         return res.status(500).send('Could not create redirect');
@@ -48,13 +48,18 @@ const postRoute = async (req: Request, res: Response) => {
  * @returns A promise that resolves to the unique subdomain string.
  */
 const tryInsertSubdomain = async (domain: string, db: Database): Promise<string> => {
-    let url = generateSubdomainFromUrl(domain);
-    while (await checkSubdomainExists(url, db)) {
-        const newSalt = crypto.randomBytes(2).toString('hex');
-        url = generateSubdomainFromUrl(domain, newSalt);
+    try {
+        let url = generateSubdomainFromUrl(domain);
+        while (await checkSubdomainExists(url, db)) {
+            const newSalt = crypto.randomBytes(2).toString('hex');
+            url = generateSubdomainFromUrl(domain, newSalt);
+        }
+        await db.run('INSERT INTO redirects (subdomain, url) VALUES (?,?)', [url, domain]);
+        return url;
+    } catch (error) {
+        console.error('Failed to insert subdomain:', error);
+        throw error;
     }
-    await db.run('INSERT INTO redirects (subdomain, url) VALUES (?,?)', [url, domain]);
-    return url;
 }
 
 /**
@@ -81,8 +86,13 @@ const generateSubdomainFromUrl = (url: string, salt: string = ''): string => {
  * @returns A promise that resolves to `true` if the subdomain exists, or `false` otherwise.
  */
 const checkSubdomainExists = async (subdomain: string, db: Database): Promise<boolean> => {
-    const result = await db.get('SELECT 1 FROM redirects WHERE subdomain = ?', [subdomain]);
-    return !!result;
+    try {
+        const result = await db.get('SELECT 1 FROM redirects WHERE subdomain = ?', [subdomain]);
+        return !!result;
+    } catch (error) {
+        console.error('Failed to check subdomain existence:', error);
+        throw error;
+    }
 }
 
 export { postRoute };
