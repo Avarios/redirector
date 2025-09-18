@@ -10,7 +10,7 @@ export default {
       return handleCreateRedirect(request, env);
     }
     
-    if (request.method === 'GET' && url.pathname === '/') {
+    if (request.method === 'GET' && url.pathname !== '/') {
       return handleRedirect(request, env);
     }
     
@@ -20,16 +20,14 @@ export default {
 
 async function handleRedirect(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const pathParts = url.pathname.split('/').filter(Boolean);
+  const id = url.pathname.slice(1);
 
-  if (pathParts.length === 0) {
+  if (!id) {
     return new Response('Bad Request', { status: 400 });
   }
-
-  const subdomain = pathParts[0];
   try {
-    const result = await env.DB.prepare(`SELECT url FROM redirects WHERE subdomain = ${subdomain}`)
-      .bind(subdomain)
+    const result = await env.DB.prepare(`SELECT url FROM redirects WHERE subdomain = ?`)
+      .bind(id)
       .first();
     
     if (result?.url) {
