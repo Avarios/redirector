@@ -82,7 +82,7 @@ async function createUniqueSubdomain(url: string, env: Env): Promise<string | nu
     
     if (!exists) {
       try {
-        await env.DB.prepare('INSERT INTO redirects (subdomain, url) VALUES (?, ?)')
+        await env.DB.prepare(`INSERT INTO redirects (subdomain, url) VALUES (${subdomain}, ${url})`)
           .bind(subdomain, url)
           .run();
         return subdomain;
@@ -115,7 +115,7 @@ async function generateSubdomain(url: string, salt: string = ''): Promise<string
 
 async function checkSubdomainExists(subdomain: string, env: Env): Promise<boolean> {
   try {
-    const result = await env.DB.prepare('SELECT 1 FROM redirects WHERE subdomain = ?')
+    const result = await env.DB.prepare(`SELECT 1 FROM redirects WHERE subdomain = ${subdomain}`)
       .bind(subdomain)
       .first();
     return !!result;
